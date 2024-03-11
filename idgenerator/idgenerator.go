@@ -5,6 +5,7 @@ package idgenerator
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -55,15 +56,38 @@ func (idGenerator *IDGenerator) Allocate() (int64, error) {
 	return id, nil
 }
 
+// Allocate and return the next free id starting from a given offset
+func (idGenerator *IDGenerator) AllocateWithOffset(offset int64) (int64, error) {
+	idGenerator.lock.Lock()
+	defer idGenerator.lock.Unlock()
+
+	current := offset
+	for {
+		if _, exists := idGenerator.usedMap[current]; exists {
+			current++
+
+			if current > idGenerator.maxValue {
+				return 0, errors.New("No available value range to allocate id")
+			}
+		} else {
+			break
+		}
+	}
+	idGenerator.usedMap[current] = true
+	id := current
+	return id, nil
+}
+
 // param:
 //  - id: id to free
 func (idGenerator *IDGenerator) FreeID(id int64) {
+	idGenerator.lock.Lock()
+	defer idGenerator.lock.Unlock()
 	if id < idGenerator.minValue || id > idGenerator.maxValue {
 		return
 	}
-	idGenerator.lock.Lock()
-	defer idGenerator.lock.Unlock()
-	delete(idGenerator.usedMap, id-idGenerator.minValue)
+	fmt.Printf("freeing ID[%d]", id)
+	delete(idGenerator.usedMap, id)
 }
 
 func (idGenerator *IDGenerator) updateOffset() {
